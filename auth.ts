@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import type { NextAuthConfig, Provider } from "next-auth";
+import type { NextAuthConfig } from "next-auth";
 
 declare module "next-auth" {
   interface User { role?: string }
@@ -14,7 +14,23 @@ declare module "next-auth" {
   }
 }
 
-const providers: Provider[] = [];
+type OIDCProvider = {
+  id: string;
+  name: string;
+  type: "oidc";
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  profile: (profile: Record<string, unknown>) => {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+    role: string;
+  };
+};
+
+const providers: OIDCProvider[] = [];
 
 if (
   process.env.DUOC_OIDC_ISSUER &&
@@ -28,20 +44,20 @@ if (
     issuer: process.env.DUOC_OIDC_ISSUER,
     clientId: process.env.DUOC_OIDC_CLIENT_ID,
     clientSecret: process.env.DUOC_OIDC_CLIENT_SECRET,
-    profile(profile) {
+    profile(profile: Record<string, unknown>) {
       return {
-        id: String(profile.sub),
+        id: String(profile.sub ?? ""),
         name: String(profile.name ?? ""),
         email: String(profile.email ?? ""),
         image: profile.picture ? String(profile.picture) : null,
-        role: String((profile as Record<string, unknown>).role ?? "student"),
+        role: String(profile.role ?? "student"),
       };
     },
   });
 }
 
 const config: NextAuthConfig = {
-  providers,
+  providers: providers as NextAuthConfig["providers"],
   callbacks: {
     session({ session, token }) {
       if (session.user) {
